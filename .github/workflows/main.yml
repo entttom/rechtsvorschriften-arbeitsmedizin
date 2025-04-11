@@ -24,7 +24,7 @@ jobs:
         python pdf_downloader.py
 
     - name: Upload combined PDF
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: rechtsvorschriften-pdf
         path: alle_rechtsvorschriften_kombiniert.pdf
