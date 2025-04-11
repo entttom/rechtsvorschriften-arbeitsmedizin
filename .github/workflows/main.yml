@@ -13,10 +13,10 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    - name: Install dependencies
+    - name: Install dependencies (wkhtmltopdf, Ghostscript, Python-Pakete)
       run: |
         sudo apt-get update
-        sudo apt-get install -y wkhtmltopdf
+        sudo apt-get install -y wkhtmltopdf ghostscript
         pip install -r requirements.txt
 
     - name: Set current date and filename
