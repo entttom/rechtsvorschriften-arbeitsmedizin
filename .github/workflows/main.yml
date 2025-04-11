@@ -3,7 +3,7 @@ name: PDF Downloader & Merger
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 5 * * *'  # täglich 05:00 UTC
+    - cron: '0 3 7 * *'  # nur einmal im monat am 7. um 3 uhr
 
 jobs:
   build:
