@@ -1,28 +1,25 @@
 import os
 import requests
+import subprocess
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import pdfkit
 from PyPDF2 import PdfMerger
 from datetime import datetime
 
-# Ausgangsseite
 START_URL = "https://www.arbeitsinspektion.gv.at/Service/Rechtsvorschriften/Rechtsvorschriften.html"
 OUTPUT_FOLDER = "pdfs"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# HTTP Header
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
-# PDFKit Optionen – keine Bilder rendern
 PDFKIT_OPTIONS = {
     'no-images': ''
 }
 
 def get_all_links(url):
-    """Sammelt alle externen Links (http/https) auf der Seite."""
     response = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(response.content, 'html.parser')
     links = set()
@@ -34,36 +31,51 @@ def get_all_links(url):
 
     return list(links)
 
+def compress_pdf(input_path, output_path):
+    """Komprimiert ein PDF mit Ghostscript."""
+    try:
+        subprocess.run([
+            "gs", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4",
+            "-dPDFSETTINGS=/ebook",
+            "-dNOPAUSE", "-dQUIET", "-dBATCH",
+            f"-sOutputFile={output_path}", input_path
+        ], check=True)
+        print(f"PDF komprimiert: {output_path}")
+        return output_path
+    except Exception as e:
+        print(f"Ghostscript-Fehler bei {input_path}: {e}")
+        return input_path  # im Fehlerfall unkomprimierte Datei zurückgeben
+
 def download_or_render_pdf(url, index):
-    """PDF direkt herunterladen oder HTML zu PDF umwandeln (ohne Bilder)."""
     parsed = urlparse(url)
     ext = os.path.splitext(parsed.path)[-1].lower()
-    filename = f"{index:03d}.pdf"
-    output_path = os.path.join(OUTPUT_FOLDER, filename)
+    raw_pdf = os.path.join(OUTPUT_FOLDER, f"raw_{index:03d}.pdf")
+    compressed_pdf = os.path.join(OUTPUT_FOLDER, f"{index:03d}.pdf")
 
     try:
         if ext == ".pdf":
             print(f"PDF direkt herunterladen: {url}")
             response = requests.get(url, headers=HEADERS)
-            with open(output_path, 'wb') as f:
+            with open(raw_pdf, 'wb') as f:
                 f.write(response.content)
         else:
-            print(f"HTML rendern (ohne Bilder): {url}")
-            pdfkit.from_url(url, output_path, options=PDFKIT_OPTIONS)
+            print(f"Render HTML zu PDF (ohne Bilder): {url}")
+            pdfkit.from_url(url, raw_pdf, options=PDFKIT_OPTIONS)
+
+        # Nach der Erstellung komprimieren
+        return compress_pdf(raw_pdf, compressed_pdf)
+
     except Exception as e:
         print(f"Fehler bei {url}: {e}")
         return None
 
-    return output_path
-
 def combine_pdfs(pdf_paths, output_file):
-    """Kombiniert eine Liste von PDFs zu einer Datei."""
     merger = PdfMerger()
     for path in pdf_paths:
         try:
             merger.append(path)
         except Exception as e:
-            print(f"Fehler beim Kombinieren von {path}: {e}")
+            print(f"Fehler beim Hinzufügen {path}: {e}")
     merger.write(output_file)
     merger.close()
     print(f"Kombinierte PDF gespeichert unter: {output_file}")
@@ -79,7 +91,6 @@ def main():
         if pdf_path:
             pdf_paths.append(pdf_path)
 
-    # Dynamisches Datum z. B. "2025-04-11"
     date_str = datetime.now().strftime("%Y-%m-%d")
     output_filename = f"rechtsvorschriften_{date_str}.pdf"
 
