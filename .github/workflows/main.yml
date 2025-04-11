@@ -3,11 +3,15 @@ name: PDF Downloader & Merger
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 7 * *'  # nur einmal im monat am 7. um 3 uhr
+    - cron: '0 3 7 * *'  # jeden 7. des Monats um 03:00 UTC
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    env:
+      DATE: ${{ steps.set_date.outputs.date }}
+      PDF_NAME: ${{ steps.set_date.outputs.pdf }}
 
     steps:
     - name: Checkout Repository
@@ -19,12 +23,21 @@ jobs:
         sudo apt-get install -y wkhtmltopdf
         pip install -r requirements.txt
 
-    - name: Run PDF Script
+    - name: Set current date
+      id: set_date
       run: |
-        python pdf_downloader.py
+        echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        echo "pdf=rechtsvorschriften_$(date +'%Y-%m-%d').pdf" >> $GITHUB_OUTPUT
 
-    - name: Upload combined PDF
-      uses: actions/upload-artifact@v4
+    - name: Run PDF Script
+      run: python pdf_downloader.py
+
+    - name: Create GitHub Release and Upload PDF
+      uses: softprops/action-gh-release@v1
       with:
-        name: rechtsvorschriften-pdf
-        path: alle_rechtsvorschriften_kombiniert.pdf
+        tag_name: pdf-${{ env.DATE }}
+        name: "Rechtsvorschriften PDF ${{ env.DATE }}"
+        body: "Automatisch generiertes PDF vom ${{ env.DATE }} mit aktuellen Rechtsvorschriften."
+        files: ${{ env.PDF_NAME }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
