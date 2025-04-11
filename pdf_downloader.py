@@ -4,16 +4,25 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import pdfkit
 from PyPDF2 import PdfMerger
+from datetime import datetime
 
+# Ausgangsseite
 START_URL = "https://www.arbeitsinspektion.gv.at/Service/Rechtsvorschriften/Rechtsvorschriften.html"
 OUTPUT_FOLDER = "pdfs"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
+# HTTP Header
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+# PDFKit Optionen – keine Bilder rendern
+PDFKIT_OPTIONS = {
+    'no-images': ''
+}
+
 def get_all_links(url):
+    """Sammelt alle externen Links (http/https) auf der Seite."""
     response = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(response.content, 'html.parser')
     links = set()
@@ -26,6 +35,7 @@ def get_all_links(url):
     return list(links)
 
 def download_or_render_pdf(url, index):
+    """PDF direkt herunterladen oder HTML zu PDF umwandeln (ohne Bilder)."""
     parsed = urlparse(url)
     ext = os.path.splitext(parsed.path)[-1].lower()
     filename = f"{index:03d}.pdf"
@@ -38,8 +48,8 @@ def download_or_render_pdf(url, index):
             with open(output_path, 'wb') as f:
                 f.write(response.content)
         else:
-            print(f"Render HTML zu PDF: {url}")
-            pdfkit.from_url(url, output_path)
+            print(f"HTML rendern (ohne Bilder): {url}")
+            pdfkit.from_url(url, output_path, options=PDFKIT_OPTIONS)
     except Exception as e:
         print(f"Fehler bei {url}: {e}")
         return None
@@ -47,12 +57,13 @@ def download_or_render_pdf(url, index):
     return output_path
 
 def combine_pdfs(pdf_paths, output_file):
+    """Kombiniert eine Liste von PDFs zu einer Datei."""
     merger = PdfMerger()
     for path in pdf_paths:
         try:
             merger.append(path)
         except Exception as e:
-            print(f"Fehler beim Hinzufügen {path}: {e}")
+            print(f"Fehler beim Kombinieren von {path}: {e}")
     merger.write(output_file)
     merger.close()
     print(f"Kombinierte PDF gespeichert unter: {output_file}")
@@ -68,8 +79,12 @@ def main():
         if pdf_path:
             pdf_paths.append(pdf_path)
 
+    # Dynamisches Datum z. B. "2025-04-11"
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    output_filename = f"rechtsvorschriften_{date_str}.pdf"
+
     if pdf_paths:
-        combine_pdfs(pdf_paths, "alle_rechtsvorschriften_kombiniert.pdf")
+        combine_pdfs(pdf_paths, output_filename)
     else:
         print("Keine PDFs zum Kombinieren gefunden.")
 
