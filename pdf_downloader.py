@@ -23,7 +23,7 @@ PDFKIT_OPTIONS = {
 }
 
 # PDF-Größenlimit
-MAX_SIZE_MB = 512
+MAX_SIZE_MB = 480
 MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
 def get_all_links(url):
