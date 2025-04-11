@@ -7,28 +7,34 @@ import pdfkit
 from PyPDF2 import PdfMerger
 from datetime import datetime
 
+# Ausgangs-URL
 START_URL = "https://www.arbeitsinspektion.gv.at/Service/Rechtsvorschriften/Rechtsvorschriften.html"
 OUTPUT_FOLDER = "pdfs"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
+# HTTP Header
 HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+# Optionen für HTML zu PDF (ohne Bilder)
 PDFKIT_OPTIONS = {
     'no-images': ''
 }
 
+# PDF-Größenlimit
+MAX_SIZE_MB = 512
+MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+
 def get_all_links(url):
+    """Sammelt alle externen Links (http/https) auf der Seite."""
     response = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(response.content, 'html.parser')
     links = set()
-
     for tag in soup.find_all('a', href=True):
         full_url = urljoin(url, tag['href'])
         if full_url.startswith("http"):
             links.add(full_url)
-
     return list(links)
 
 def compress_pdf(input_path, output_path):
@@ -43,10 +49,11 @@ def compress_pdf(input_path, output_path):
         print(f"PDF komprimiert: {output_path}")
         return output_path
     except Exception as e:
-        print(f"Ghostscript-Fehler bei {input_path}: {e}")
-        return input_path  # im Fehlerfall unkomprimierte Datei zurückgeben
+        print(f"Fehler bei Komprimierung von {input_path}: {e}")
+        return input_path
 
 def download_or_render_pdf(url, index):
+    """Lädt PDF oder rendert HTML zu PDF und komprimiert es."""
     parsed = urlparse(url)
     ext = os.path.splitext(parsed.path)[-1].lower()
     raw_pdf = os.path.join(OUTPUT_FOLDER, f"raw_{index:03d}.pdf")
@@ -54,36 +61,51 @@ def download_or_render_pdf(url, index):
 
     try:
         if ext == ".pdf":
-            print(f"PDF direkt herunterladen: {url}")
+            print(f"PDF herunterladen: {url}")
             response = requests.get(url, headers=HEADERS)
             with open(raw_pdf, 'wb') as f:
                 f.write(response.content)
         else:
-            print(f"Render HTML zu PDF (ohne Bilder): {url}")
+            print(f"HTML rendern: {url}")
             pdfkit.from_url(url, raw_pdf, options=PDFKIT_OPTIONS)
-
-        # Nach der Erstellung komprimieren
         return compress_pdf(raw_pdf, compressed_pdf)
-
     except Exception as e:
         print(f"Fehler bei {url}: {e}")
         return None
 
-def combine_pdfs(pdf_paths, output_file):
-    merger = PdfMerger()
+def combine_pdfs_split(pdf_paths, base_filename):
+    """Fasst PDFs zusammen und splittet in Teile unter 512 MB."""
+    part = 1
+    current_merger = PdfMerger()
+    current_size = 0
+    current_files = []
+
     for path in pdf_paths:
-        try:
-            merger.append(path)
-        except Exception as e:
-            print(f"Fehler beim Hinzufügen {path}: {e}")
-    merger.write(output_file)
-    merger.close()
-    print(f"Kombinierte PDF gespeichert unter: {output_file}")
+        file_size = os.path.getsize(path)
+        if current_size + file_size > MAX_SIZE_BYTES and current_files:
+            output = f"{base_filename}_part{part}.pdf"
+            current_merger.write(output)
+            current_merger.close()
+            print(f"📄 Gespeichert: {output} ({current_size / 1024 / 1024:.2f} MB)")
+            part += 1
+            current_merger = PdfMerger()
+            current_size = 0
+            current_files = []
+
+        current_merger.append(path)
+        current_size += file_size
+        current_files.append(path)
+
+    if current_files:
+        output = f"{base_filename}_part{part}.pdf"
+        current_merger.write(output)
+        current_merger.close()
+        print(f"📄 Gespeichert: {output} ({current_size / 1024 / 1024:.2f} MB)")
 
 def main():
-    print("Sammle alle Links...")
+    print("🔗 Sammle Links...")
     links = get_all_links(START_URL)
-    print(f"{len(links)} Links gefunden.")
+    print(f"🔍 {len(links)} Links gefunden.")
 
     pdf_paths = []
     for idx, link in enumerate(links):
@@ -92,12 +114,12 @@ def main():
             pdf_paths.append(pdf_path)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
-    output_filename = f"rechtsvorschriften_{date_str}.pdf"
+    base_filename = f"rechtsvorschriften_{date_str}"
 
     if pdf_paths:
-        combine_pdfs(pdf_paths, output_filename)
+        combine_pdfs_split(pdf_paths, base_filename)
     else:
-        print("Keine PDFs zum Kombinieren gefunden.")
+        print("⚠️ Keine PDFs zum Zusammenführen.")
 
 if __name__ == "__main__":
     main()
