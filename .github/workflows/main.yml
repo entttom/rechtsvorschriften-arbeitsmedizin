@@ -1,0 +1,30 @@
+name: PDF Downloader & Merger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * *'  # täglich 05:00 UTC
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wkhtmltopdf
+        pip install -r requirements.txt
+
+    - name: Run PDF Script
+      run: |
+        python pdf_downloader.py
+
+    - name: Upload combined PDF
+      uses: actions/upload-artifact@v3
+      with:
+        name: rechtsvorschriften-pdf
+        path: alle_rechtsvorschriften_kombiniert.pdf
