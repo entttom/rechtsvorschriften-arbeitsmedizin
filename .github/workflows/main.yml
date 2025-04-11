@@ -3,7 +3,7 @@ name: PDF Downloader & Merger
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 7 * *'  # jeden 7. des Monats um 03:00 UTC
+    - cron: '0 3 7 * *'  # Jeden 7. des Monats um 03:00 UTC
 
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
     - name: Install dependencies (wkhtmltopdf, Ghostscript, Python packages)
       run: |
         sudo apt-get update
-        sudo apt-get install -y wkhtmltopdf ghostscript
+        sudo apt-get install -y wkhtmltopdf ghostscript gh
         pip install -r requirements.txt
 
     - name: Set current date and filename
@@ -39,5 +39,16 @@ jobs:
         name: "Rechtsvorschriften PDF ${{ steps.set_date.outputs.date }}"
         body: "Automatisch generierte Teil-PDFs vom ${{ steps.set_date.outputs.date }} mit max. 512 MB pro Datei."
         files: out/*.pdf
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Delete older releases (keep last 2)
+      run: |
+        gh auth setup-git
+        releases=$(gh release list --limit 100 --json tagName,createdAt --jq 'sort_by(.createdAt) | .[:-2] | .[].tagName')
+        for tag in $releases; do
+          echo "❌ Lösche Release $tag"
+          gh release delete "$tag" --yes
+        done
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
