@@ -13,7 +13,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    - name: Install dependencies (wkhtmltopdf, Ghostscript, Python-Pakete)
+    - name: Install dependencies (wkhtmltopdf, Ghostscript, Python packages)
       run: |
         sudo apt-get update
         sudo apt-get install -y wkhtmltopdf ghostscript
@@ -23,17 +23,21 @@ jobs:
       id: set_date
       run: |
         echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-        echo "pdf_name=rechtsvorschriften_$(date +'%Y-%m-%d').pdf" >> $GITHUB_OUTPUT
 
     - name: Run PDF Script
       run: python pdf_downloader.py
 
-    - name: Create GitHub Release and Upload PDF
+    - name: Collect PDF Parts
+      run: |
+        mkdir out
+        mv rechtsvorschriften_*_part*.pdf out/
+
+    - name: Create GitHub Release and Upload all PDF parts
       uses: softprops/action-gh-release@v1
       with:
         tag_name: pdf-${{ steps.set_date.outputs.date }}
         name: "Rechtsvorschriften PDF ${{ steps.set_date.outputs.date }}"
-        body: "Automatisch generiertes PDF vom ${{ steps.set_date.outputs.date }} mit aktuellen Rechtsvorschriften."
-        files: ${{ steps.set_date.outputs.pdf_name }}
+        body: "Automatisch generierte Teil-PDFs vom ${{ steps.set_date.outputs.date }} mit max. 512 MB pro Datei."
+        files: out/*.pdf
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
