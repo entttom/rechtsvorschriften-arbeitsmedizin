@@ -29,8 +29,8 @@ jobs:
 
     - name: Collect PDF Parts
       run: |
-        mkdir out
-        mv rechtsvorschriften_*_part*.pdf out/
+        mkdir -p out
+        mv *_rechtsvorschriften_${{ steps.set_date.outputs.date }}.pdf out/
 
     - name: Create GitHub Release and Upload all PDF parts
       uses: softprops/action-gh-release@v1
