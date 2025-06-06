@@ -37,7 +37,7 @@ jobs:
       with:
         tag_name: pdf-${{ steps.set_date.outputs.date }}
         name: "Rechtsvorschriften PDF ${{ steps.set_date.outputs.date }}"
-        body: "Automatisch generierte Teil-PDFs vom ${{ steps.set_date.outputs.date }} mit max. 512 MB pro Datei."
+        body: "Automatisch generierte Teil-PDFs vom ${{ steps.set_date.outputs.date }} mit max. 200 MB pro Datei oder 500 000 Wörter."
         files: out/*.pdf
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
